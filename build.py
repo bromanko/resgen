@@ -4,8 +4,10 @@ import os
 import logging
 import optparse
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(message)s')
+
+options = ''
 
 def main():
     usage = "usage: %prog [options]"
@@ -30,21 +32,27 @@ def main():
     rFile = open(rFilePath, 'w')
 
     write_header(rFile)
-
-    for (dirPath, dirNames, fileNames) in os.walk(options.resource_folder):
-        logging.info("%s %s %s" % (dirPath, dirNames, fileNames))
-        write_class(options.class_name, rFile, dirNames, fileNames)
-        # For each folder we will need to emit a class
-        # For each file in the folder we will need to emit properties on that class
-
-
+    walk_folder(options.resource_folder, options, rFile)
     rFile.close()
+
+def walk_folder(folder, options, file):
+    for (dirPath, dirNames, fileNames) in os.walk(folder):
+        logging.debug("Processing folder %s %s %s" % (dirPath, dirNames, fileNames))
+        if dirPath != options.resource_folder:
+            write_class(options, os.path.split(dirPath)[1], fileNames, file)
+
+        for (dir) in dirNames:
+            walk_folder(dir, options, file)
+
+        # For each file in the folder we will need to emit properties on that class
 
 def write_header(file):
     file.write("Header\n")
 
-def write_class(rClassName, file, className, properties):
-    className = "__%s_%s" % (rClassName, className)
+def write_class(options, className, properties, file):
+    logging.debug("Creating class %s" % (className))
+
+    className = "__%s_%s" % (options.class_name, className)
     file.write('@interface %s : NSObject\n' % className)
     file.write('\n')
     for (p) in properties:
