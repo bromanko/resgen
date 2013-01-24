@@ -15,8 +15,9 @@ class Property:
         self.fileName = fileName
 
 class Node:
-    def __init__(self, name):
+    def __init__(self, name, path):
         self.name = name
+        self.path = path
         self.parent = None
         self.nodes = []
         self.properties = []
@@ -66,8 +67,8 @@ def main():
     if not exists:
         parser.error("The resource folder specified (%s) does not exist." % options.resource_folder)
 
-    root = Node(options.class_name)
-    walk_folder(root, options.resource_folder)
+    root = Node(options.class_name, options.resource_folder)
+    walk_folder(root)
 
     rFilePath = os.path.join(options.resource_folder, options.class_name + '.h')
     logging.info('Creating "%s" resources registry class', rFilePath)
@@ -77,22 +78,29 @@ def main():
     root.write_class(rFile)
     rFile.close()
 
-def walk_folder(node, folder):
+def walk_folder(node):
     includes = ['*.png', '*.jpg', '*.jpeg', '*.gif', '*.ttf', '*.otf', '*.mp3', '*.caf']
     includes = r'|'.join([fnmatch.translate(x) for x in includes])
 
-    for (dirPath, dirNames, fileNames) in os.walk(folder):
-        logging.debug("Processing folder %s %s %s" % (dirPath, dirNames, fileNames))
-        filtered = [f for f in fileNames if re.match(includes, f)]
-        for f in filtered:
-            node.properties.append(Property(os.path.splitext(f)[0], f))
+    dirNames = []
+    fileNames = []
+    for dirPath in os.listdir(node.path):
+        dirPath = os.path.join(node.path, dirPath)
+        if os.path.isdir(dirPath):
+            dirNames.append(dirPath)
+        elif os.path.isfile(dirPath):
+            fileNames.append(dirPath)
 
-#        for (dir) in dirNames:
-#            logging.debug("Creating class %s" % dir)
-#            child = Node(dir)
-#            node.nodes.append(child)
-#            child.parent = node
-#            walk_folder(child, dir)
+    filtered = [f for f in fileNames if re.match(includes, f)]
+    for f in filtered:
+        node.properties.append(Property(os.path.splitext(f)[0], f))
+
+    for dir in dirNames:
+        logging.debug("Creating class %s" % dir)
+        child = Node(dir, dir)
+        node.nodes.append(child)
+        child.parent = node
+        walk_folder(child)
 
 def write_header(file):
     file.write("Header\n")
