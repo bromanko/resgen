@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+import fnmatch
 
 import os
 import logging
 import optparse
+import re
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -36,10 +38,14 @@ def main():
     rFile.close()
 
 def walk_folder(folder, options, file):
+    includes = ['*.png', '*.jpg', '*.jpeg', '*.gif', '*.ttf', '*.otf', '*.mp3', '*.caf']
+    includes = r'|'.join([fnmatch.translate(x) for x in includes])
+
     for (dirPath, dirNames, fileNames) in os.walk(folder):
         logging.debug("Processing folder %s %s %s" % (dirPath, dirNames, fileNames))
         if dirPath != options.resource_folder:
-            write_class(options, os.path.split(dirPath)[1], fileNames, file)
+            filtered = [f for f in fileNames if re.match(includes, f)]
+            write_class(options, os.path.split(dirPath)[1], filtered, file)
 
         for (dir) in dirNames:
             walk_folder(dir, options, file)
@@ -49,21 +55,21 @@ def walk_folder(folder, options, file):
 def write_header(file):
     file.write("Header\n")
 
-def write_class(options, className, properties, file):
-    logging.debug("Creating class %s" % (className))
+def write_class(options, className, fileNames, file):
+    logging.debug("Creating class %s" % className)
 
     className = "__%s_%s" % (options.class_name, className)
     file.write('@interface %s : NSObject\n' % className)
     file.write('\n')
-    for (p) in properties:
-        file.write('- (NSString *)%s;\n' % p)
+    for (p) in fileNames:
+        file.write('- (NSString *)%s;\n' % os.path.splitext(p)[0])
     file.write('\n')
     file.write('@end\n')
     file.write('\n')
     file.write('@implementation %s\n' % className)
     file.write('\n')
-    for (p) in properties:
-        file.write('- (NSString *)%s {\n' % p)
+    for (p) in fileNames:
+        file.write('- (NSString *)%s {\n' % os.path.splitext(p)[0])
         file.write('return @"%s";\n' % p)
     file.write('}\n')
     file.write('\n')
