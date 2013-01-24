@@ -23,7 +23,7 @@ class Property:
     def write_property_m(self, file):
         file.write('\n')
         file.write('- (NSString *)%s {\n' % self.name)
-        file.write('return @"%s";\n' % os.path.basename(self.fileName))
+        file.write('    return @"%s";\n' % os.path.basename(self.fileName))
         file.write('}\n')
         file.write('\n')
 
@@ -43,24 +43,50 @@ class Node:
             parent = parent.parent
         return full
 
+    def write_singleton(self, file, type, name, isStatic):
+        file.write('%s (%s *)%s {\n' % ("+" if isStatic else "-", type, name))
+        file.write('    static dispatch_once_t once;\n')
+        file.write('    static %s *sharedInstance;\n' % type)
+        file.write('    dispatch_once(&once, ^{\n')
+        file.write('        sharedInstance = [[%s alloc] init];\n' % type)
+        file.write('    });\n')
+        file.write('    return sharedInstance;\n')
+        file.write('}\n')
+        file.write('\n')
+
     def write_class(self, file):
-        if self.parent is not None:
-            file.write('@interface %s : NSObject\n' % self.full_name())
-            for (p) in self.properties:
-                p.write_property_h(file)
-            file.write('@end\n')
-            file.write('\n')
-
-            file.write('@implementation %s\n' % self.full_name())
-            for (p) in self.properties:
-                p.write_property_m(file)
-            file.write('@end\n')
-            file.write('\n')
-
-
         for n in self.nodes:
             n.write_class(file)
 
+        file.write('@interface %s : NSObject\n' % self.full_name())
+
+        if self.parent is None:
+            file.write('+ (%s *)%s;\n' % (self.full_name(), "shared"))
+            file.write('\n')
+
+        for (p) in self.properties:
+            p.write_property_h(file)
+
+        for n in self.nodes:
+            file.write('- (%s *)%s;\n' % (n.full_name(), n.name))
+            file.write('\n')
+
+        file.write('@end\n')
+        file.write('\n')
+
+        file.write('@implementation %s\n' % self.full_name())
+
+        if self.parent is None:
+            self.write_singleton(file, self.full_name(), self.full_name(), True)
+
+        for (p) in self.properties:
+            p.write_property_m(file)
+
+        for n in self.nodes:
+            self.write_singleton(file, n.full_name(), n.name, False)
+
+        file.write('@end\n')
+        file.write('\n')
 
 
 def main():
